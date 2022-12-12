@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { GetStaticPaths, GetStaticProps, NextPage } from 'next';
 import { Button, Card, Container, Grid, Image, Text } from '@nextui-org/react';
@@ -8,7 +8,7 @@ import confetti from 'canvas-confetti';
 import { ParsedUrlQuery } from 'querystring';
 import { pokeApi } from '../../api';
 import { Layout } from '../../components/layouts';
-import { Pokemon } from '../../interfaces';
+import { Pokemon, PokemonListResponse } from '../../interfaces';
 import { getPokemonInfo, localFavorites, strings } from '../../utils';
 
 
@@ -20,9 +20,14 @@ interface Params extends ParsedUrlQuery {
   id: string;
 }
 
-const PokemonPage: NextPage<Props> = ({ pokemon }) => {
+const PokemonByNamePage: NextPage<Props> = ({ pokemon }) => {
   
-  const [isInFavorites, setIsInFavorites] = useState(localFavorites.existInFavorites(pokemon.id));
+  const [isInFavorites, setIsInFavorites] = useState(false);
+
+  useEffect(() => {
+    setIsInFavorites(localFavorites.existInFavorites(pokemon.id))
+  }, [pokemon.id])
+  
   
   const onToggleFovorite = () => {
     localFavorites.toggleFavorites(pokemon.id);
@@ -111,26 +116,28 @@ const PokemonPage: NextPage<Props> = ({ pokemon }) => {
   );
 };
 
-export const getStaticPaths: GetStaticPaths<Params> = async () => {
-  const paths = [...Array(151)].map((_, index) => ({
-    params: { id: `${index + 1}` },
-  }));
+export const getStaticPaths: GetStaticPaths = async (ctx) => {
+  
+    const {data} = await pokeApi.get<PokemonListResponse>('/pokemon?limit=151');
+    const pokemonNames: string[] = data.results.map(pokemon => pokemon.name);
 
   return {
-    paths,
+      paths: pokemonNames.map(name => ({
+        params: {name}
+      })),
     fallback: false,
   };
 };
 
 export const getStaticProps: GetStaticProps = async ({params}) => {
-  
-  const { id } = params as {id: string};
+
+  const { name } = params as {name: string};  
 
   return {
     props: {
-      pokemon: await getPokemonInfo(id)
+      pokemon: await getPokemonInfo(name)
     },
   };
 };
 
-export default PokemonPage;
+export default PokemonByNamePage;
